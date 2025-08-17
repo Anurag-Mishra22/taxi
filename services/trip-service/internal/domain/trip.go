@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	tripTypes "github.com/Anurag-Mishra22/taxi/services/trip-service/pkg/types"
 	"github.com/Anurag-Mishra22/taxi/shared/types"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -20,5 +21,5 @@ type TripRepository interface {
 
 type TripService interface {
 	CreateTrip(ctx context.Context, fare *RideFareModel) (*TripModel, error)
-	GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*types.OsrmApiResponse, error)
+	GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*tripTypes.OsrmApiResponse, error)
 }

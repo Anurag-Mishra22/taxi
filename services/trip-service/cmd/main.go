@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"github.com/Anurag-Mishra22/taxi/services/trip-service/internal/infrastructure/grpc"
+	"github.com/Anurag-Mishra22/taxi/services/trip-service/internal/infrastructure/repository"
+	"github.com/Anurag-Mishra22/taxi/services/trip-service/internal/service"
 	"log"
 	"net"
 	"os"
@@ -14,8 +17,8 @@ import (
 var GrpcAddr = ":9093"
 
 func main() {
-	// 	inmemRepo := repository.NewInmemRepository()
-	// svc := service.NewService(inmemRepo)
+	inmemRepo := repository.NewInmemRepository()
+	svc := service.NewService(inmemRepo)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -32,9 +35,9 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
+	// Starting the gRPC server
 	grpcServer := grpcserver.NewServer()
-
-	// TODO initialize our grpc handler implementation
+	grpc.NewGRPCHandler(grpcServer, svc)
 
 	log.Printf("Starting gRPC server Trip service on port %s", lis.Addr().String())
 
