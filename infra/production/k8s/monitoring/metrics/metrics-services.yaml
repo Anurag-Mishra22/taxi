@@ -1,0 +1,76 @@
+---
+# Metrics service for API Gateway
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-metrics
+  namespace: prod
+  labels:
+    app: api-gateway
+    component: metrics
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+---
+# Metrics service for Trip Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: trip-service-metrics
+  namespace: prod
+  labels:
+    app: trip-service
+    component: metrics
+spec:
+  selector:
+    app: trip-service
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+---
+# Metrics service for Driver Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: driver-service-metrics
+  namespace: prod
+  labels:
+    app: driver-service
+    component: metrics
+spec:
+  selector:
+    app: driver-service
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+---
+# Metrics service for Payment Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service-metrics
+  namespace: prod
+  labels:
+    app: payment-service
+    component: metrics
+spec:
+  selector:
+    app: payment-service
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
