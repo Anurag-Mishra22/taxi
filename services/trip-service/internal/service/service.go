@@ -4,23 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Anurag-Mishra22/taxi/services/trip-service/internal/domain"
-	tripTypes "github.com/Anurag-Mishra22/taxi/services/trip-service/pkg/types"
-	"github.com/Anurag-Mishra22/taxi/shared/proto/trip"
-	"github.com/Anurag-Mishra22/taxi/shared/types"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io"
 	"log"
 	"net/http"
+	"github.com/Anurag-Mishra22/taxi/services/trip-service/internal/domain"
+	tripTypes "github.com/Anurag-Mishra22/taxi/services/trip-service/pkg/types"
+	"github.com/Anurag-Mishra22/taxi/shared/env"
+	"github.com/Anurag-Mishra22/taxi/shared/metrics"
+	pbd "github.com/Anurag-Mishra22/taxi/shared/proto/driver"
+	"github.com/Anurag-Mishra22/taxi/shared/proto/trip"
+	"github.com/Anurag-Mishra22/taxi/shared/types"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type service struct {
-	repo domain.TripRepository
+	repo    domain.TripRepository
+	metrics *metrics.Metrics
 }
 
-func NewService(repo domain.TripRepository) *service {
+func NewService(repo domain.TripRepository, m *metrics.Metrics) *service {
 	return &service{
-		repo: repo,
+		repo:    repo,
+		metrics: m,
 	}
 }
 
@@ -33,30 +40,82 @@ func (s *service) CreateTrip(ctx context.Context, fare *domain.RideFareModel) (*
 		Driver:   &trip.TripDriver{},
 	}
 
-	return s.repo.CreateTrip(ctx, t)
+	trip, err := s.repo.CreateTrip(ctx, t)
+	if err == nil && s.metrics != nil {
+		s.metrics.RecordTripCreated(fare.PackageSlug, "success")
+		s.metrics.ActiveTrips.Inc()
+	} else if s.metrics != nil {
+		s.metrics.RecordTripCreated(fare.PackageSlug, "failed")
+	}
+
+	return trip, err
 }
 
-func (s *service) GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*tripTypes.OsrmApiResponse, error) {
+func (s *service) GetRoute(ctx context.Context, pickup, destination *types.Coordinate, useOSRMApi bool) (*tripTypes.OsrmApiResponse, error) {
+	start := time.Now()
+	defer func() {
+		if s.metrics != nil {
+			duration := time.Since(start)
+			s.metrics.ExternalAPICallDuration.WithLabelValues("osrm").Observe(duration.Seconds())
+		}
+	}()
+	if !useOSRMApi {
+		// Return a simple mock response in case we don't want to rely on an external API
+		return &tripTypes.OsrmApiResponse{
+			Routes: []struct {
+				Distance float64 `json:"distance"`
+				Duration float64 `json:"duration"`
+				Geometry struct {
+					Coordinates [][]float64 `json:"coordinates"`
+				} `json:"geometry"`
+			}{
+				{
+					Distance: 5.0, // 5km
+					Duration: 600, // 10 minutes
+					Geometry: struct {
+						Coordinates [][]float64 `json:"coordinates"`
+					}{
+						Coordinates: [][]float64{
+							{pickup.Latitude, pickup.Longitude},
+							{destination.Latitude, destination.Longitude},
+						},
+					},
+				},
+			},
+		}, nil
+	}
+
+	// or use our self hosted API (check the course lesson: "Preparing for External API Failures")
+	baseURL := env.GetString("OSRM_API", "http://router.project-osrm.org")
+
 	url := fmt.Sprintf(
-		"http://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson",
+		"%s/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson",
+		baseURL,
 		pickup.Longitude, pickup.Latitude,
 		destination.Longitude, destination.Latitude,
 	)
 
-	log.Printf("Fetching from OSRM API: URL: %s", url)
+	log.Printf("Started Fetching from OSRM API: URL: %s", url)
 
 	resp, err := http.Get(url)
 	if err != nil {
+		if s.metrics != nil {
+			s.metrics.ExternalAPICallsTotal.WithLabelValues("osrm", "error").Inc()
+		}
 		return nil, fmt.Errorf("failed to fetch route from OSRM API: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if s.metrics != nil {
+		s.metrics.ExternalAPICallsTotal.WithLabelValues("osrm", "success").Inc()
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the response: %v", err)
 	}
 
-	log.Printf("GOT RESPONSE FROM API %s", string(body))
+	log.Printf("Got response from OSRM API %s", string(body))
 
 	var routeResp tripTypes.OsrmApiResponse
 	if err := json.Unmarshal(body, &routeResp); err != nil {
@@ -67,17 +126,25 @@ func (s *service) GetRoute(ctx context.Context, pickup, destination *types.Coord
 }
 
 func (s *service) EstimatePackagesPriceWithRoute(route *tripTypes.OsrmApiResponse) []*domain.RideFareModel {
+	start := time.Now()
 	baseFares := getBaseFares()
 	estimatedFares := make([]*domain.RideFareModel, len(baseFares))
 
 	for i, f := range baseFares {
 		estimatedFares[i] = estimateFareRoute(f, route)
+		if s.metrics != nil {
+			s.metrics.TripsFareCalculated.WithLabelValues(f.PackageSlug).Inc()
+		}
+	}
+
+	if s.metrics != nil {
+		s.metrics.FareCalculationDuration.Observe(time.Since(start).Seconds())
 	}
 
 	return estimatedFares
 }
 
-func (s *service) GenerateTripFares(ctx context.Context, rideFares []*domain.RideFareModel, userID string) ([]*domain.RideFareModel, error) {
+func (s *service) GenerateTripFares(ctx context.Context, rideFares []*domain.RideFareModel, userID string, route *tripTypes.OsrmApiResponse) ([]*domain.RideFareModel, error) {
 	fares := make([]*domain.RideFareModel, len(rideFares))
 
 	for i, f := range rideFares {
@@ -88,6 +155,7 @@ func (s *service) GenerateTripFares(ctx context.Context, rideFares []*domain.Rid
 			ID:                id,
 			TotalPriceInCents: f.TotalPriceInCents,
 			PackageSlug:       f.PackageSlug,
+			Route:             route,
 		}
 
 		if err := s.repo.SaveRideFare(ctx, fare); err != nil {
@@ -154,4 +222,16 @@ func getBaseFares() []*domain.RideFareModel {
 			TotalPriceInCents: 1000,
 		},
 	}
+}
+
+func (s *service) GetTripByID(ctx context.Context, id string) (*domain.TripModel, error) {
+	return s.repo.GetTripByID(ctx, id)
+}
+
+func (s *service) UpdateTrip(ctx context.Context, tripID string, status string, driver *pbd.Driver) error {
+	err := s.repo.UpdateTrip(ctx, tripID, status, driver)
+	if err == nil && status == "payed" && s.metrics != nil {
+		s.metrics.ActiveTrips.Dec()
+	}
+	return err
 }

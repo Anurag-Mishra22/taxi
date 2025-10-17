@@ -2,10 +2,10 @@ package http
 
 import (
 	"encoding/json"
-	"github.com/Anurag-Mishra22/taxi/services/trip-service/internal/domain"
-	"github.com/Anurag-Mishra22/taxi/shared/types"
 	"log"
 	"net/http"
+	"github.com/Anurag-Mishra22/taxi/services/trip-service/internal/domain"
+	"github.com/Anurag-Mishra22/taxi/shared/types"
 )
 
 type HttpHandler struct {
@@ -25,13 +25,10 @@ func (s *HttpHandler) HandleTripPreview(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	fare := &domain.RideFareModel{
-		UserID: "42",
-	}
-
 	ctx := r.Context()
 
-	t, err := s.Service.CreateTrip(ctx, fare)
+	// CHANGE THE LAST ARG TO "FALSE" if the OSRM API is not working right now
+	t, err := s.Service.GetRoute(ctx, &reqBody.Pickup, &reqBody.Destination, true)
 	if err != nil {
 		log.Println(err)
 	}
