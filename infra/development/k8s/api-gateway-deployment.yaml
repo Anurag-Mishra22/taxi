@@ -17,6 +17,9 @@ spec:
           image: ride-sharing/api-gateway
           ports:
             - containerPort: 8081
+              name: http
+            - containerPort: 9090
+              name: metrics
           resources:
             requests:
               memory: "128Mi"
@@ -31,6 +34,21 @@ spec:
                 configMapKeyRef:
                   key: GATEWAY_HTTP_ADDR
                   name: app-config
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
+            - name: RABBITMQ_URI
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-credentials
+                  key: uri
+            - name: STRIPE_WEBHOOK_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-secrets
+                  key: stripe-webhook-key
 ---
 apiVersion: v1
 kind: Service
@@ -40,6 +58,10 @@ spec:
   type: LoadBalancer
   ports:
     - port: 8081
+      name: http
       targetPort: 8081
+    - port: 9090
+      name: metrics
+      targetPort: 9090
   selector:
     app: api-gateway

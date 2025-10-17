@@ -1,22 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trip-service
+  name: driver-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: trip-service
+      app: driver-service
   template:
     metadata:
       labels:
-        app: trip-service
+        app: driver-service
     spec:
       containers:
-        - name: trip-service
-          image: ride-sharing/trip-service
+        - name: driver-service
+          image: ride-sharing/driver-service
+          imagePullPolicy: Never
           ports:
-            - containerPort: 9093
+            - containerPort: 9092
               name: grpc
             - containerPort: 9090
               name: metrics
@@ -28,22 +29,11 @@ spec:
               memory: "128Mi"
               cpu: "200m"
           env:
-            - name: MONGODB_URI
-              valueFrom:
-                secretKeyRef:
-                  name: mongodb
-                  key: uri
             - name: RABBITMQ_URI
               valueFrom:
                 secretKeyRef:
                   name: rabbitmq-credentials
                   key: uri
-            - name: OSRM_API
-              valueFrom:
-                secretKeyRef:
-                  name: external-apis
-                  key: osrm
-
             - name: JAEGER_ENDPOINT
               valueFrom:
                 configMapKeyRef:
@@ -53,15 +43,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: trip-service
+  name: driver-service
 spec:
-  selector:
-    app: trip-service
+  type: ClusterIP
   ports:
-    - port: 9093
+    - port: 9092
       name: grpc
-      targetPort: 9093
+      targetPort: 9092
     - port: 9090
       name: metrics
       targetPort: 9090
-  type: ClusterIP
+  selector:
+    app: driver-service
