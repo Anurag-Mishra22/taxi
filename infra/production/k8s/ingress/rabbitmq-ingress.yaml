@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rabbitmq-management
+  namespace: prod
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # RabbitMQ management has its own auth, but extra layer is good
+  labels:
+    app: rabbitmq
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: rabbitmq.mishrahub.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rabbitmq
+            port:
+              number: 15672
+  tls:
+  - hosts:
+    - rabbitmq.mishrahub.com
+    secretName: rabbitmq-tls
