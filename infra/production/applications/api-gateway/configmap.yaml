@@ -1,0 +1,3 @@
+# API Gateway uses the shared app-config ConfigMap
+# See: ../../configmaps/app-config.yaml
+# This file is kept for reference but not used

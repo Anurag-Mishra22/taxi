@@ -1,0 +1,97 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: api-gateway
+  namespace: prod
+  labels:
+    app: api-gateway
+    environment: production
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        version: v1.0.0
+    spec:
+      containers:
+      - name: api-gateway
+        image: us-central1-docker.pkg.dev/uplifted-woods-471510-b7/ride-sharing/api-gateway:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: GATEWAY_HTTP_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: GATEWAY_HTTP_ADDR
+        - name: JAEGER_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: JAEGER_ENDPOINT
+        - name: RABBITMQ_URI
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: uri
+        - name: STRIPE_WEBHOOK_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stripe-secrets
+              key: stripe-webhook-key
+        resources:
+          requests:
+            cpu: 125m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        livenessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 5
+  strategy:
+    canary:
+      # Canary service for traffic splitting (stable service is the main one)
+      canaryService: api-gateway-canary
+      stableService: api-gateway
+      trafficRouting:
+        nginx:
+          stableIngress: api-gateway-ingress
+      steps:
+      - setWeight: 10
+      - pause: {duration: 2m}
+      - setWeight: 20
+      - pause: {duration: 2m}
+      - setWeight: 40
+      - pause: {duration: 2m}
+      - setWeight: 60
+      - pause: {duration: 2m}
+      - setWeight: 80
+      - pause: {duration: 2m}
+      # Optional: add analysis runs
+      # - analysis:
+      #     templates:
+      #     - templateName: success-rate
+      #     args:
+      #     - name: service-name
+      #       value: api-gateway
+      maxSurge: "25%"
+      maxUnavailable: 0

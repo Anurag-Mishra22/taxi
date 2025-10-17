@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: prod
+  labels:
+    app: frontend
+    environment: production
+data:
+  # Public API URL - exposed to browser
+  NEXT_PUBLIC_API_URL: "https://api.mishrahub.com"
+  
+  # WebSocket URL - exposed to browser (with /ws prefix, frontend appends /drivers or /riders)
+  NEXT_PUBLIC_WEBSOCKET_URL: "wss://api.mishrahub.com/ws"
+  
+  # Node environment
+  NODE_ENV: "production"

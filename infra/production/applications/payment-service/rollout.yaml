@@ -1,0 +1,88 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: payment-service
+  namespace: prod
+  labels:
+    app: payment-service
+    environment: production
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: payment-service
+        image: us-central1-docker.pkg.dev/uplifted-woods-471510-b7/ride-sharing/payment-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9004
+          name: grpc
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stripe-secrets
+              key: stripe-secret-key
+        - name: STRIPE_SUCCESS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: STRIPE_SUCCESS_URL
+        - name: STRIPE_CANCEL_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: STRIPE_CANCEL_URL
+        - name: RABBITMQ_URI
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: uri
+        - name: JAEGER_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: JAEGER_ENDPOINT
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          tcpSocket:
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9090
+          initialDelaySeconds: 10
+          periodSeconds: 5
+  strategy:
+    canary:
+      canaryService: payment-service-canary
+      stableService: payment-service
+      steps:
+      - setWeight: 20
+      - pause: {duration: 2m}
+      - setWeight: 40
+      - pause: {duration: 2m}
+      - setWeight: 60
+      - pause: {duration: 2m}
+      - setWeight: 80
+      - pause: {duration: 1m}
+      maxSurge: "25%"
+      maxUnavailable: 0
