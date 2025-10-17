@@ -1,4 +1,4 @@
-# Production Dockerfile for API Gateway
+# Production Dockerfile for Payment Service
 # Multi-stage build for security and optimization
 
 FROM golang:1.25 AS build
@@ -23,14 +23,14 @@ RUN useradd -u 1001 rideshare
 # Copy source code
 COPY . .
 
-# Build the API Gateway binary
+# Build the Payment Service binary
 # We compile statically to avoid runtime dependencies in final image
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s" \
-    -o api-gateway \
-    ./services/api-gateway
+    -o payment-service \
+    ./services/payment-service/cmd/main.go
 
 # Final production stage - using scratch for minimal attack surface
 FROM scratch
@@ -40,14 +40,17 @@ WORKDIR /
 # Copy passwd file for non-root user
 COPY --from=build-production /etc/passwd /etc/passwd
 
+# Copy SSL certificates for HTTPS calls to Stripe API
+COPY --from=build-production /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 # Copy the binary (statically linked - includes all dependencies)
-COPY --from=build-production /app/api-gateway /api-gateway
+COPY --from=build-production /app/payment-service /payment-service
 
 # Use non-root user for security
 USER rideshare
 
-# Expose port
-EXPOSE 8081
+# Expose port (adjust as needed)
+EXPOSE 8084
 
 # Run the binary
-CMD ["/api-gateway"]
+CMD ["/payment-service"]
