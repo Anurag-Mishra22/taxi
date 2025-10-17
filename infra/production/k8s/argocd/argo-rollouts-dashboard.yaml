@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: argo-rollouts-dashboard
+  namespace: argo-rollouts
+  labels:
+    app: argo-rollouts-dashboard
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 3100
+    targetPort: 3100
+    protocol: TCP
+  selector:
+    app: argo-rollouts-dashboard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argo-rollouts-dashboard
+  namespace: argo-rollouts
+  labels:
+    app: argo-rollouts-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argo-rollouts-dashboard
+  template:
+    metadata:
+      labels:
+        app: argo-rollouts-dashboard
+    spec:
+      serviceAccountName: argo-rollouts
+      containers:
+      - name: dashboard
+        image: quay.io/argoproj/kubectl-argo-rollouts:latest
+        args:
+        - dashboard
+        ports:
+        - name: http
+          containerPort: 3100
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3100
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3100
+          initialDelaySeconds: 10
+          periodSeconds: 5
