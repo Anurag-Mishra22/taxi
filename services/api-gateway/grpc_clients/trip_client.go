@@ -1,10 +1,12 @@
 package grpc_clients
 
 import (
+	"os"
 	pb "github.com/Anurag-Mishra22/taxi/shared/proto/trip"
+	"github.com/Anurag-Mishra22/taxi/shared/tracing"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"os"
 )
 
 type tripServiceClient struct {
@@ -18,7 +20,12 @@ func NewTripServiceClient() (*tripServiceClient, error) {
 		tripServiceURL = "trip-service:9093"
 	}
 
-	conn, err := grpc.NewClient(tripServiceURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	dialOptions := append(
+		tracing.DialOptionsWithTracing(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+
+	conn, err := grpc.NewClient(tripServiceURL, dialOptions...)
 	if err != nil {
 		return nil, err
 	}
