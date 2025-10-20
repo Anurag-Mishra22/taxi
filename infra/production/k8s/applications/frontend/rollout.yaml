@@ -42,6 +42,11 @@ spec:
             configMapKeyRef:
               name: frontend-config
               key: NEXT_PUBLIC_WEBSOCKET_URL
+        - name: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: frontend-secrets
+              key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
         resources:
           requests:
             cpu: 100m

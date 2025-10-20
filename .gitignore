@@ -61,4 +61,4 @@ build/
 .cursorrules
 
 # Secrets
-secrets.yaml
+secrets.yamlinfra/production/k8s/secrets/frontend-secret.yaml
