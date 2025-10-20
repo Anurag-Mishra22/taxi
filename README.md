@@ -1,5 +1,15 @@
 
 
+## Documentation
+
+[![Documentation](https://img.shields.io/badge/Documentation-GitBook-blue?logo=gitbook)](https://andyklick-organization.gitbook.io/taxi/)
+
+ documentation is available on:
+https://andyklick-organization.gitbook.io/taxi/
+
+
+
+
 | Domain                    | Description                       |
 |---------------------------|-----------------------------------|
 | [argocd.mishrahub.com](https://argocd.mishrahub.com)      | ArgoCD UI                         |
