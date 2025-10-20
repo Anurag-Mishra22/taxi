@@ -3,7 +3,7 @@
 | Domain                    | Description                       |
 |---------------------------|-----------------------------------|
 | [argocd.mishrahub.com](https://argocd.mishrahub.com)      | ArgoCD UI                         |
-| [argo-rollout.mishrahub.com](https://argo-rollout.mishrahub.com) | ArgoRollout Dashboard             |
+| [argo-rollouts.mishrahub.com](https://argo-rollouts.mishrahub.com) | ArgoRollout Dashboard             |
 | [vault.mishrahub.com](https://vault.mishrahub.com)       | Vault                             |
 | [jaeger.mishrahub.com](https://jaeger.mishrahub.com)      | Jaeger                            |
 | [rabbitmq.mishrahub.com](https://rabbitmq.mishrahub.com)    | RabbitMQ Management UI            |
